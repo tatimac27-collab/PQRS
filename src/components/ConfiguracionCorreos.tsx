@@ -64,7 +64,6 @@ export default function ConfiguracionCorreos() {
   const guardar = () => {
     if (!form) return;
     if (!emailValido(form.liderEmail)) return toast('Indique un correo válido para el líder principal.', 'error');
-    if (!state.usuarios.some((u) => u.email === form.liderEmail) && !form.liderNombre?.trim()) return toast('Escriba el nombre y cargo del líder principal.', 'error');
     guardarConfigCorreo(form);
     toast(`Correos de ${form.area} actualizados.`);
   };
@@ -96,16 +95,7 @@ export default function ConfiguracionCorreos() {
             {state.configCorreos.map((c) => (
               <tr key={c.area} onClick={() => elegir(c.area)} className={`cursor-pointer hover:bg-slate-50 ${sel === c.area ? 'bg-sky-50' : ''}`}>
                 <td className="td font-medium">{c.area}</td>
-                <td className="td text-xs">
-                  {c.liderEmail ? (
-                    <>
-                      {(c.liderNombre || state.usuarios.find((u) => u.email === c.liderEmail)?.nombre) && <p className="font-medium text-slate-700">{c.liderNombre || state.usuarios.find((u) => u.email === c.liderEmail)?.nombre}</p>}
-                      <p>{c.liderEmail}</p>
-                    </>
-                  ) : (
-                    <span className="text-red-600">Sin líder</span>
-                  )}
-                </td>
+                <td className="td text-xs">{c.liderEmail || <span className="text-red-600">Sin líder</span>}</td>
                 <td className="td text-xs">
                   <Badge tono="azul">{c.apoyo.length} apoyo</Badge> <Badge tono="gris">{c.copias.length} CC</Badge>
                 </td>
@@ -128,7 +118,7 @@ export default function ConfiguracionCorreos() {
           {!admin && <div className="mb-4"><Aviso tono="ambar">Solo el Coordinador de Calidad puede modificar la configuración de correos.</Aviso></div>}
           <div className="space-y-5">
             <Field label="Líder principal" required>
-              <PersonaSelect usuarios={state.usuarios.filter((u) => u.activo)} email={form.liderEmail} nombre={form.liderNombre ?? lider?.nombre ?? ''} onChange={(p) => setForm({ ...form, liderEmail: p.email, liderNombre: p.nombre })} disabled={!admin} />
+              <PersonaSelect usuarios={state.usuarios.filter((u) => u.activo)} email={form.liderEmail} nombre={lider?.nombre ?? (form.liderEmail ? form.liderEmail : '')} onChange={(p) => setForm({ ...form, liderEmail: p.email })} disabled={!admin} />
             </Field>
             <Field label="Correos de apoyo" hint="Reciben las mismas notificaciones que el líder.">
               <ListaCorreos valores={form.apoyo} onChange={(v) => setForm({ ...form, apoyo: v })} disabled={!admin} sugeridos={sugeridos} />
