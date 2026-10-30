@@ -263,6 +263,8 @@ export interface SolicitudClave {
 export interface ConfigCorreoArea {
   area: string;
   liderEmail: string;
+  liderNombre?: string; // nombre del líder cuando no es un usuario registrado
+  liderCargo?: string;
   apoyo: string[]; // correos de apoyo
   copias: string[]; // copias obligatorias (Dirección Técnica / Gerencias)
 }

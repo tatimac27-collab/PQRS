@@ -225,7 +225,7 @@ export default function RadicarPQRSF({ onAbrir }: { onAbrir: (id: string) => voi
                   />
                 </Field>
                 <Field label="Dirigida a (nombre y cargo)" required>
-                  <PersonaSelect usuarios={personalDestino} email={destino.email} nombre={destino.nombre} onChange={setDestino} />
+                  <PersonaSelect usuarios={personalDestino} email={destino.email} nombre={destino.nombre} cargo={destino.cargo} onChange={setDestino} />
                 </Field>
                 <Field label="Prioridad / riesgo" required>
                   <SelectConOtro value={f.riesgo} options={RIESGOS} onChange={(v) => set('riesgo', v)} />

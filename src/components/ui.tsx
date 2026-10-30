@@ -211,6 +211,7 @@ export function PersonaSelect({
   usuarios,
   email,
   nombre,
+  cargo = '',
   onChange,
   disabled,
   placeholder = 'Seleccione…',
@@ -218,6 +219,7 @@ export function PersonaSelect({
   usuarios: Usuario[];
   email: string;
   nombre: string;
+  cargo?: string;
   onChange: (p: { email: string; nombre: string; cargo: string }) => void;
   disabled?: boolean;
   placeholder?: string;
@@ -255,9 +257,20 @@ export function PersonaSelect({
         <option value={OTRO_VALUE}>{OTRO}</option>
       </select>
       {otro && (
-        <div className="grid gap-2 sm:grid-cols-2">
-          <input className="input border-teal-400 bg-teal-50/40" placeholder="Nombre y cargo" value={nombre} disabled={disabled} onChange={(e) => onChange({ email, nombre: e.target.value, cargo: 'Personalizado' })} />
-          <input className="input border-teal-400 bg-teal-50/40" placeholder="correo@tecnitrauma.com.co" value={email} disabled={disabled} onChange={(e) => onChange({ email: e.target.value.trim(), nombre, cargo: 'Personalizado' })} />
+        <div className="grid gap-3 rounded-xl border border-teal-200 bg-teal-50/40 p-3 sm:grid-cols-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold text-teal-900">Nombre completo *</span>
+            <input className="input" placeholder="Ej.: Edinson Pantaleón" value={nombre} disabled={disabled} onChange={(e) => onChange({ email, nombre: e.target.value, cargo })} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold text-teal-900">Cargo *</span>
+            <input className="input" placeholder="Ej.: Director de Control Interno" value={cargo} disabled={disabled} onChange={(e) => onChange({ email, nombre, cargo: e.target.value })} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold text-teal-900">Correo electrónico *</span>
+            <input className="input" type="email" placeholder="nombre@tecnitrauma.com.co" value={email} disabled={disabled} onChange={(e) => onChange({ email: e.target.value.trim(), nombre, cargo })} />
+            {email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) && <span className="mt-1 block text-xs text-red-600">Escriba un correo válido, por ejemplo nombre@tecnitrauma.com.co</span>}
+          </label>
         </div>
       )}
     </div>

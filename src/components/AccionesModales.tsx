@@ -262,10 +262,10 @@ export function ReasignarForm({ p, onDone }: { p: PQRSF; onDone?: () => void }) 
           <SelectConOtro value={tipologia} options={state.tipologias.map((t) => t.nombre)} onChange={elegirTipologia} />
         </Field>
         <Field label="Persona responsable (ejecuta)">
-          <PersonaSelect usuarios={personalArea} email={deleg.email} nombre={deleg.nombre} onChange={setDeleg} placeholder="Sin asignar" />
+          <PersonaSelect usuarios={personalArea} email={deleg.email} nombre={deleg.nombre} cargo={deleg.cargo} onChange={setDeleg} placeholder="Sin asignar" />
         </Field>
         <Field label="Se radica a (nombre y cargo)" required className="md:col-span-2">
-          <PersonaSelect usuarios={state.usuarios.filter((u) => u.activo)} email={resp.email} nombre={resp.nombre} onChange={setResp} />
+          <PersonaSelect usuarios={state.usuarios.filter((u) => u.activo)} email={resp.email} nombre={resp.nombre} cargo={resp.cargo} onChange={setResp} />
         </Field>
       </div>
       <Field label="Motivo de la corrección" required>

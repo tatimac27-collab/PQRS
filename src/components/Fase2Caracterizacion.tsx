@@ -135,7 +135,7 @@ export default function Fase2Caracterizacion({ p }: { p: PQRSF }) {
           <SelectConOtro value={f.area} options={AREAS} onChange={(v) => set('area', v)} disabled={!editable} />
         </Field>
         <Field label="Responsable notificado" required hint={f.tipologia === TIPOLOGIA_INTERNA ? 'Tipología sin correo fijo: seleccione el destinatario.' : 'Se precarga desde la tipología.'}>
-          <PersonaSelect usuarios={personal} email={resp.email} nombre={resp.nombre} onChange={setResp} disabled={!editable} />
+          <PersonaSelect usuarios={personal} email={resp.email} nombre={resp.nombre} cargo={resp.cargo} onChange={setResp} disabled={!editable} />
         </Field>
         <Field label="Institución" required>
           <input className="input" value={f.institucion} onChange={(e) => set('institucion', e.target.value)} />

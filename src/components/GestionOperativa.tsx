@@ -290,7 +290,7 @@ export default function GestionOperativa({ p }: { p: PQRSF }) {
           {p.delegadoNombre && <p className="mb-2 text-sm text-slate-600">Actualmente delegada a <b>{p.delegadoNombre}</b>.</p>}
           <div className="flex flex-col gap-2 md:flex-row">
             <div className="flex-1">
-              <PersonaSelect usuarios={personalArea} email={deleg.email} nombre={deleg.nombre} onChange={setDeleg} disabled={!puede} />
+              <PersonaSelect usuarios={personalArea} email={deleg.email} nombre={deleg.nombre} cargo={deleg.cargo} onChange={setDeleg} disabled={!puede} />
             </div>
             <button className="btn-soft h-fit" disabled={!puede} onClick={delegar}>
               <UserPlus className="h-4 w-4" /> Enviar delegación
