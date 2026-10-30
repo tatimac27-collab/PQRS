@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { KeyRound, Search } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { AREAS, CARGOS, CLAVE_PROVISIONAL, DOMINIO, ROL_LABEL } from '../data';
+import { AREAS, CARGOS, CLAVE_PROVISIONAL, DOMINIO, REGLA_CLAVE, ROL_LABEL } from '../data';
 import { Aviso, Field, Logo, SelectConOtro, toast } from './ui';
 
 type Modo = 'ingresar' | 'solicitar' | 'olvide';
 
-const soloDigitos = (v: string) => v.replace(/\D/g, '').slice(0, 5);
+const limpiar = (v: string) => v.replace(/\s/g, '').slice(0, 20);
 
 export default function Login({ onConsultaPublica }: { onConsultaPublica: () => void }) {
   const { login, solicitarAcceso, olvideClave, state } = useApp();
@@ -55,7 +55,7 @@ export default function Login({ onConsultaPublica }: { onConsultaPublica: () => 
             <Logo size="lg" />
           </div>
           <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Gestión de Solicitudes Internas y Externas</h1>
-          <p className="mt-2 text-sm text-slate-500">Ingrese con su correo institucional y su clave de 5 dígitos.</p>
+          <p className="mt-2 text-sm text-slate-500">Ingrese con su correo y su clave.</p>
         </div>
 
         <div className="card p-6">
@@ -81,11 +81,11 @@ export default function Login({ onConsultaPublica }: { onConsultaPublica: () => 
               <Field label="Correo electrónico" required>
                 <input className="input" type="email" autoComplete="username" placeholder={`usuario${DOMINIO}`} value={email} onChange={(e) => setEmail(e.target.value)} />
               </Field>
-              <Field label="Clave (5 dígitos)" required>
-                <input className="input tracking-[0.4em]" type="password" inputMode="numeric" autoComplete="current-password" value={clave} onChange={(e) => setClave(soloDigitos(e.target.value))} />
+              <Field label="Clave" required>
+                <input className="input" type="password" autoComplete="current-password" value={clave} onChange={(e) => setClave(limpiar(e.target.value))} />
               </Field>
               <p className="text-xs text-slate-500">
-                Solo números, sin letras. Si su cuenta fue creada por la institución, ingrese con la clave provisional que le entregaron (
+                La clave combina letras y números. Si su cuenta fue creada por la institución, ingrese con la clave provisional que le entregaron (
                 <b>{CLAVE_PROVISIONAL}</b> para las cuentas iniciales) y el sistema le pedirá cambiarla de inmediato.
               </p>
               <button className="btn-primary w-full" type="submit">
@@ -132,7 +132,7 @@ export default function Login({ onConsultaPublica }: { onConsultaPublica: () => 
               <Field label="Nombre completo" required>
                 <input className="input" value={reg.nombre} onChange={(e) => setReg({ ...reg, nombre: e.target.value })} />
               </Field>
-              <Field label="Correo institucional" required>
+              <Field label="Correo electrónico" required hint={`Se recomienda el correo institucional (${DOMINIO}).`}>
                 <input className="input" type="email" placeholder={`usuario${DOMINIO}`} value={reg.email} onChange={(e) => setReg({ ...reg, email: e.target.value })} />
               </Field>
               <Field label="Cargo" required>
@@ -142,13 +142,14 @@ export default function Login({ onConsultaPublica }: { onConsultaPublica: () => 
                 <SelectConOtro value={reg.proceso} options={AREAS} onChange={(v) => setReg({ ...reg, proceso: v })} />
               </Field>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Clave (5 dígitos)" required>
-                  <input className="input" type="password" inputMode="numeric" value={reg.clave} onChange={(e) => setReg({ ...reg, clave: soloDigitos(e.target.value) })} />
+                <Field label="Clave" required>
+                  <input className="input" type="password" autoComplete="new-password" value={reg.clave} onChange={(e) => setReg({ ...reg, clave: limpiar(e.target.value) })} />
                 </Field>
                 <Field label="Confirmar clave" required>
-                  <input className="input" type="password" inputMode="numeric" value={reg.confirmar} onChange={(e) => setReg({ ...reg, confirmar: soloDigitos(e.target.value) })} />
+                  <input className="input" type="password" autoComplete="new-password" value={reg.confirmar} onChange={(e) => setReg({ ...reg, confirmar: limpiar(e.target.value) })} />
                 </Field>
               </div>
+              <p className="-mt-2 text-xs text-slate-500">{REGLA_CLAVE}</p>
               <Aviso>La cuenta se crea con perfil <b>Registrador de Solicitudes</b>. Coordinación de Calidad ajustará su rol y proceso.</Aviso>
               <button className="btn-primary w-full" type="submit">
                 Crear cuenta
@@ -206,14 +207,14 @@ export function CambioClaveObligatorio() {
         <Logo />
         <h1 className="text-xl font-bold">Cambio de clave obligatorio</h1>
         <p className="text-sm text-slate-600">
-          Hola <b>{usuario.nombre}</b>. Ingresó con una clave provisional; por seguridad debe definir una nueva clave de 5 dígitos antes de continuar.
+          Hola <b>{usuario.nombre}</b>. Ingresó con una clave provisional; por seguridad debe definir una nueva clave antes de continuar.
         </p>
         {error && <Aviso tono="rojo">{error}</Aviso>}
-        <Field label="Nueva clave (5 dígitos)" required>
-          <input className="input" type="password" inputMode="numeric" value={nueva} onChange={(e) => setNueva(soloDigitos(e.target.value))} />
+        <Field label="Nueva clave" required hint={REGLA_CLAVE}>
+          <input className="input" type="password" autoComplete="new-password" value={nueva} onChange={(e) => setNueva(limpiar(e.target.value))} />
         </Field>
         <Field label="Confirmar nueva clave" required>
-          <input className="input" type="password" inputMode="numeric" value={confirmar} onChange={(e) => setConfirmar(soloDigitos(e.target.value))} />
+          <input className="input" type="password" autoComplete="new-password" value={confirmar} onChange={(e) => setConfirmar(limpiar(e.target.value))} />
         </Field>
         <div className="flex gap-2">
           <button className="btn-primary flex-1" type="submit">

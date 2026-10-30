@@ -24,7 +24,7 @@ const pctConsumido = (p: PQRSF, now: number) => {
 };
 
 export default function Dashboard({ onAbrir }: { onAbrir: (id: string) => void }) {
-  const { state, usuario, now } = useApp();
+  const { state, usuario, now, reintentarEnvio } = useApp();
   const [filtro, setFiltro] = useState<Filtro>('todas');
   const [q, setQ] = useState('');
   const [modal, setModal] = useState<{ tipo: 'cerrar' | 'rechazar' | 'reabrir' | 'reasignar'; id: string } | null>(null);
@@ -164,6 +164,7 @@ export default function Dashboard({ onAbrir }: { onAbrir: (id: string) => void }
                     <p className="text-xs text-slate-500">
                       {p.origen} · {pctConsumido(p, now)}% · {p.tipoTramite}
                     </p>
+                    {/^p\d+$/.test(p.id) && <Badge tono="gris">Ejemplo</Badge>}
                   </td>
                   <td className="td max-w-[240px]">
                     <p className="font-medium">{p.institucion}</p>
@@ -230,8 +231,24 @@ export default function Dashboard({ onAbrir }: { onAbrir: (id: string) => void }
                   <p className="flex items-center gap-2 text-sm font-semibold">
                     <Mail className="h-4 w-4 text-tecni-primary" /> {n.asunto}
                   </p>
-                  <span className="text-xs text-slate-500">{fmtFechaHora(n.fecha)}</span>
+                  <span className="flex items-center gap-2 text-xs text-slate-500">
+                    {n.envio === 'enviado' && <Badge tono="verde">Enviado por Gmail</Badge>}
+                    {n.envio === 'pendiente' && <Badge tono="ambar">Enviando…</Badge>}
+                    {n.envio === 'error' && <Badge tono="rojo">Error de envío</Badge>}
+                    {(!n.envio || n.envio === 'simulado') && <Badge tono="gris">Solo registrado</Badge>}
+                    {fmtFechaHora(n.fecha)}
+                  </span>
                 </div>
+                {n.envio === 'error' && (
+                  <p className="mt-1 text-xs text-red-700">
+                    {n.envioDetalle}{' '}
+                    {esAdmin(usuario) && (
+                      <button className="font-semibold underline" onClick={() => reintentarEnvio(n.id)}>
+                        Reintentar
+                      </button>
+                    )}
+                  </p>
+                )}
                 <p className="mt-1 text-xs text-slate-600">
                   <b>Para:</b> {n.para.join(', ') || '—'} · <b>CC:</b> {n.cc.join(', ')}
                 </p>

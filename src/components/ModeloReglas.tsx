@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { ArrowDown, Download, RefreshCcw } from 'lucide-react';
+import { ArrowDown, Download, RefreshCcw, Trash2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { DIAS_SEGUIMIENTO_EFICACIA, PESOS_INDICADOR, ROL_LABEL, SLA_POR_RIESGO, UMBRAL_FALLA_SISTEMICA, VENTANA_REINCIDENCIA_DIAS } from '../data';
 import { esAdmin } from '../utils/helpers';
-import { Card, Modal, PageHeader } from './ui';
+import { Card, Modal, PageHeader, toast } from './ui';
 import { NIVELES_PRIORIDAD } from './DashboardAnalytics';
 
 const Paso = ({ actor, texto, fuerte }: { actor?: string; texto: string; fuerte?: boolean }) => (
@@ -19,8 +19,10 @@ const Flecha = () => (
 );
 
 export default function ModeloReglas() {
-  const { state, usuario, reiniciarDemo } = useApp();
+  const { state, usuario, reiniciarDemo, eliminarEjemplos } = useApp();
   const [confirmar, setConfirmar] = useState(false);
+  const [confirmarEjemplos, setConfirmarEjemplos] = useState(false);
+  const ejemplos = state.pqrsf.filter((p) => /^p\d+$/.test(p.id)).length;
   if (!usuario) return null;
 
   const exportar = () => {
@@ -164,6 +166,11 @@ export default function ModeloReglas() {
           <button className="btn-soft" onClick={exportar}>
             <Download className="h-4 w-4" /> Exportar respaldo JSON
           </button>
+          {esAdmin(usuario) && ejemplos > 0 && (
+            <button className="btn-ghost" onClick={() => setConfirmarEjemplos(true)}>
+              <Trash2 className="h-4 w-4" /> Eliminar solicitudes de ejemplo ({ejemplos})
+            </button>
+          )}
           {esAdmin(usuario) && (
             <button className="btn-danger" onClick={() => setConfirmar(true)}>
               <RefreshCcw className="h-4 w-4" /> Restablecer datos de demostración
@@ -171,6 +178,31 @@ export default function ModeloReglas() {
           )}
         </div>
       </Card>
+
+      <Modal
+        open={confirmarEjemplos}
+        onClose={() => setConfirmarEjemplos(false)}
+        title="Eliminar solicitudes de ejemplo"
+        footer={
+          <>
+            <button className="btn-soft" onClick={() => setConfirmarEjemplos(false)}>Cancelar</button>
+            <button
+              className="btn-danger"
+              onClick={() => {
+                const n = eliminarEjemplos();
+                toast(`Se eliminaron ${n} solicitudes de ejemplo.`);
+                setConfirmarEjemplos(false);
+              }}
+            >
+              Eliminar ejemplos
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm">
+          Se borrarán las {ejemplos} solicitudes de demostración (PQR001 a PQR006) con sus alertas e historial. Se conservan los usuarios, las tipologías, la configuración de correos y las solicitudes que ustedes hayan radicado.
+        </p>
+      </Modal>
 
       <Modal
         open={confirmar}
