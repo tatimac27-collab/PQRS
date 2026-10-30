@@ -5,12 +5,13 @@ import { AREAS, CARGOS } from '../data';
 import { esAdmin, uid } from '../utils/helpers';
 import { Aviso, Badge, Field, Modal, PageHeader, SelectConOtro, toast } from './ui';
 import ConfiguracionCorreos from './ConfiguracionCorreos';
+import ConfiguracionEnvio from './ConfiguracionEnvio';
 
 const vacia = (): Tipologia => ({ id: '', nombre: '', area: '', cargo: '', email: '', especial: false });
 
 export default function Tipologias() {
   const { state, usuario, guardarTipologia, eliminarTipologia } = useApp();
-  const [tab, setTab] = useState<'tipologias' | 'correos'>('tipologias');
+  const [tab, setTab] = useState<'tipologias' | 'correos' | 'envio'>('tipologias');
   const [form, setForm] = useState<Tipologia>(vacia());
   const [error, setError] = useState('');
   const [borrar, setBorrar] = useState<Tipologia | null>(null);
@@ -31,16 +32,21 @@ export default function Tipologias() {
   return (
     <div>
       <PageHeader title="Tipologías y Correos" subtitle="La tipología determina el área responsable y el destinatario de la notificación automática." />
-      <div className="mb-6 flex gap-2">
+      <div className="mb-6 flex flex-wrap gap-2">
         <button className={tab === 'tipologias' ? 'btn-primary' : 'btn-soft'} onClick={() => setTab('tipologias')}>
           Tipologías específicas
         </button>
         <button className={tab === 'correos' ? 'btn-primary' : 'btn-soft'} onClick={() => setTab('correos')}>
           Configuración de correos por área
         </button>
+        <button className={tab === 'envio' ? 'btn-primary' : 'btn-soft'} onClick={() => setTab('envio')}>
+          Envío por Gmail
+        </button>
       </div>
 
-      {tab === 'correos' ? (
+      {tab === 'envio' ? (
+        <ConfiguracionEnvio />
+      ) : tab === 'correos' ? (
         <ConfiguracionCorreos />
       ) : (
         <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
