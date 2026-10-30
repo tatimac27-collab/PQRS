@@ -1,11 +1,15 @@
 // ============================================================================
 // Datos maestros de Tecnitrauma S.A. (Listado de Líderes 2026) y catálogos
 // ============================================================================
-import type { AppState, ConfigCorreoArea, PQRSF, Rol, Tipologia, Usuario } from './types';
+import type { AppState, ConfigCorreoArea, ConfigEnvio, PQRSF, Rol, Tipologia, Usuario } from './types';
 
 export const OTRO = 'Otro / Personalizado';
 export const DOMINIO = '@tecnitrauma.com.co';
 export const CLAVE_PROVISIONAL = '12345';
+/** Regla de clave: alfanumérica de 6 a 20 caracteres, con al menos una letra y un número. */
+export const CLAVE_MIN = 6;
+export const CLAVE_MAX = 20;
+export const REGLA_CLAVE = `De ${CLAVE_MIN} a ${CLAVE_MAX} caracteres, con al menos una letra y un número.`;
 export const EMAIL_DIRECCION_TECNICA = 'gerenteoperaciones@tecnitrauma.com.co';
 export const EMAIL_CALIDAD = 'coordinadorcalidad@tecnitrauma.com.co';
 export const TIPOLOGIA_INTERNA = 'Solicitudes Internas entre Procesos';
@@ -86,7 +90,7 @@ export const SLA_MAX_POR_TRAMITE: Record<string, number> = {
   Reclamo: 360,
   'Petición': 360,
   Sugerencia: 360,
-  'Felicitación': 360,
+  Felicitación: 360,
 };
 export const DIAS_SEGUIMIENTO_EFICACIA = 90; // 3 meses
 export const VENTANA_REINCIDENCIA_DIAS = 90;
@@ -330,6 +334,18 @@ export const configCorreosInicial = (): ConfigCorreoArea[] =>
     copias: Array.from(new Set([EMAIL_DIRECCION_TECNICA, ...(COPIAS_EXTRA[area] ?? [])])),
   }));
 
+/** Cuenta de envío de prueba (se cambia desde Tipologías y Correos → Envío por Gmail). */
+export const configEnvioInicial = (): ConfigEnvio => ({
+  activo: false,
+  urlScript: '',
+  token: '',
+  correoRemitente: 'logisticainventarios@tecnitrauma.com.co',
+  nombreRemitente: 'Gestión PQRSF · Tecnitrauma S.A.',
+  modoPrueba: true,
+  correoPrueba: 'logisticainventarios@tecnitrauma.com.co',
+  urlApp: '',
+});
+
 export const estadoInicial = (): AppState => {
   const { lista, contadores } = pqrsfIniciales();
   return {
@@ -337,6 +353,7 @@ export const estadoInicial = (): AppState => {
     usuarios: usuariosIniciales(),
     tipologias: tipologiasIniciales(),
     configCorreos: configCorreosInicial(),
+    configEnvio: configEnvioInicial(),
     pqrsf: lista,
     notificaciones: [],
     auditoria: [

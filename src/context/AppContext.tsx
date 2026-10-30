@@ -1,16 +1,17 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { AppState, ConfigCorreoArea, PQRSF, Tipologia, Usuario } from '../types';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import type { AppState, ConfigCorreoArea, ConfigEnvio, PQRSF, Tipologia, Usuario } from '../types';
+import { enviarPorGmail, envioConfigurado, type ResultadoEnvio } from '../utils/correo';
 import {
   CLAVE_PROVISIONAL,
-  DOMINIO,
   EMAIL_CALIDAD,
   EMAIL_DIRECCION_TECNICA,
   GERENCIAS,
   ROL_LABEL,
   STATE_VERSION,
+  configEnvioInicial,
   estadoInicial,
 } from '../data';
-import { ahoraISO, estaVencida, fmtFechaHora, formatearConsecutivo, uid } from '../utils/helpers';
+import { ahoraISO, emailValido, estaVencida, fmtFechaHora, formatearConsecutivo, generarClaveProvisional, uid, validarClave } from '../utils/helpers';
 
 const STORAGE_KEY = 'tecnitrauma-pqrsf-estado';
 const SESION_KEY = 'tecnitrauma-pqrsf-sesion';
@@ -40,6 +41,8 @@ interface Ctx {
   // Usuarios
   actualizarUsuario: (id: string, patch: Partial<Usuario>, detalle: string) => void;
   crearUsuario: (u: Usuario) => void;
+  cambiarCorreoUsuario: (id: string, nuevo: string) => Resultado;
+  eliminarEjemplos: () => number;
   restablecerClave: (id: string) => string;
   atenderSolicitudClave: (id: string) => void;
   // Tipologías
@@ -53,6 +56,10 @@ interface Ctx {
   notificar: (n: NotificarArgs) => void;
   auditar: (accion: string, detalle: string, pqrsfId?: string) => void;
   reiniciarDemo: () => void;
+  // Envío real por Gmail
+  guardarConfigEnvio: (c: ConfigEnvio) => void;
+  reintentarEnvio: (id: string) => void;
+  enviarCorreoPrueba: () => Promise<ResultadoEnvio>;
 }
 
 const AppContext = createContext<Ctx | null>(null);
@@ -62,7 +69,7 @@ const cargarEstado = (): AppState => {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as AppState;
-      if (parsed.version === STATE_VERSION && Array.isArray(parsed.pqrsf)) return parsed;
+      if (parsed.version === STATE_VERSION && Array.isArray(parsed.pqrsf)) return { ...parsed, configEnvio: { ...configEnvioInicial(), ...(parsed.configEnvio ?? {}) } };
     }
   } catch {
     /* almacenamiento no disponible */
@@ -135,7 +142,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return {
       ...s,
       notificaciones: [
-        { id: uid(), fecha: ahoraISO(), para, cc, asunto: n.asunto, cuerpo: n.cuerpo, pqrsfId: n.pqrsfId, evento: n.evento },
+        { id: uid(), fecha: ahoraISO(), para, cc, asunto: n.asunto, cuerpo: n.cuerpo, pqrsfId: n.pqrsfId, evento: n.evento, envio: envioConfigurado(s.configEnvio) ? 'pendiente' : 'simulado' },
         ...s.notificaciones,
       ],
     };
@@ -200,8 +207,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // ------------------------------------------------------------ Autenticación
   const login = (email: string, clave: string): Resultado => {
     const e = email.trim().toLowerCase();
-    if (!e.endsWith(DOMINIO)) return { ok: false, error: `Use su correo institucional (${DOMINIO}).` };
-    if (!/^\d{5}$/.test(clave)) return { ok: false, error: 'La clave debe tener exactamente 5 dígitos numéricos.' };
+    if (!emailValido(e)) return { ok: false, error: 'Escriba un correo electrónico válido.' };
+    if (!clave) return { ok: false, error: 'Escriba su clave.' };
     const u = state.usuarios.find((x) => x.email.toLowerCase() === e);
     if (!u) return { ok: false, error: 'El correo no está registrado. Use "Solicitar acceso".' };
     if (!u.activo) return { ok: false, error: 'La cuenta está inactiva. Contacte a Coordinación de Calidad.' };
@@ -219,10 +226,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const solicitarAcceso: Ctx['solicitarAcceso'] = (d) => {
     const email = d.email.trim().toLowerCase();
     if (!d.nombre.trim()) return { ok: false, error: 'Ingrese su nombre completo.' };
-    if (!email.endsWith(DOMINIO)) return { ok: false, error: `El correo debe ser institucional (${DOMINIO}).` };
-    if (state.usuarios.some((u) => u.email.toLowerCase() === email)) return { ok: false, error: 'Ya existe una cuenta con ese correo.' };
-    if (!/^\d{5}$/.test(d.clave)) return { ok: false, error: 'La clave debe tener 5 dígitos numéricos.' };
-    if (d.clave === CLAVE_PROVISIONAL) return { ok: false, error: 'No use la clave provisional 12345.' };
+    if (!emailValido(email)) return { ok: false, error: 'Escriba un correo electrónico válido.' };
+    if (state.usuarios.some((u) => u.email.toLowerCase() === email)) return { ok: false, error: 'Este correo ya tiene cuenta. Use "Ingresar"; si es su primer ingreso, la clave provisional es 12345.' };
+    const errClave = validarClave(d.clave);
+    if (errClave) return { ok: false, error: errClave };
     const nuevo: Usuario = {
       id: uid(),
       nombre: d.nombre.trim().toUpperCase(),
@@ -270,8 +277,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const cambiarClave = (actual: string, nueva: string): Resultado => {
     if (!usuario) return { ok: false, error: 'Sin sesión.' };
     if (usuario.clave !== actual) return { ok: false, error: 'La clave actual no coincide.' };
-    if (!/^\d{5}$/.test(nueva)) return { ok: false, error: 'La nueva clave debe tener 5 dígitos numéricos.' };
-    if (nueva === CLAVE_PROVISIONAL || nueva === actual) return { ok: false, error: 'La nueva clave debe ser distinta a la provisional y a la actual.' };
+    const errClave = validarClave(nueva);
+    if (errClave) return { ok: false, error: errClave };
+    if (nueva === actual) return { ok: false, error: 'La nueva clave debe ser distinta a la actual.' };
     setState((s) =>
       auditarCon(
         { ...s, usuarios: s.usuarios.map((u) => (u.id === usuario.id ? { ...u, clave: nueva, debeCambiarClave: false } : u)) },
@@ -295,8 +303,60 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return notificarCon(n, { para: [u.email], asunto: 'Cuenta creada · Gestión de Solicitudes Tecnitrauma', cuerpo: `Su cuenta fue creada. Ingrese con la clave provisional ${CLAVE_PROVISIONAL}; el sistema le pedirá cambiarla.` });
     });
 
+  /** Cambia el correo de acceso de un usuario y actualiza todas sus referencias. */
+  const cambiarCorreoUsuario = (id: string, nuevoCorreo: string): Resultado => {
+    const nuevo = nuevoCorreo.trim().toLowerCase();
+    const u = state.usuarios.find((x) => x.id === id);
+    if (!u) return { ok: false, error: 'Usuario no encontrado.' };
+    if (!emailValido(nuevo)) return { ok: false, error: 'Escriba un correo electrónico válido.' };
+    if (nuevo === u.email) return { ok: true };
+    if (state.usuarios.some((x) => x.email.toLowerCase() === nuevo)) return { ok: false, error: 'Ese correo ya está en uso por otro usuario.' };
+    const viejo = u.email;
+    const r = (e: string) => (e === viejo ? nuevo : e);
+    setState((s) => {
+      let n: AppState = {
+        ...s,
+        usuarios: s.usuarios.map((x) => (x.id === id ? { ...x, email: nuevo } : x)),
+        tipologias: s.tipologias.map((t) => ({ ...t, email: r(t.email) })),
+        configCorreos: s.configCorreos.map((c) => ({ ...c, liderEmail: r(c.liderEmail), apoyo: c.apoyo.map(r), copias: c.copias.map(r) })),
+        pqrsf: s.pqrsf.map((p) => ({
+          ...p,
+          radicadoPor: r(p.radicadoPor),
+          responsableEmail: r(p.responsableEmail),
+          delegadoEmail: p.delegadoEmail ? r(p.delegadoEmail) : p.delegadoEmail,
+        })),
+        solicitudesClave: s.solicitudesClave.map((x) => ({ ...x, email: r(x.email) })),
+      };
+      n = auditarCon(n, 'Cambio de correo', `${u.nombre}: ${viejo} → ${nuevo}`, undefined, usuario);
+      return notificarCon(n, { para: [nuevo, viejo], asunto: 'Correo de acceso actualizado', cuerpo: `Desde ahora ingrese con ${nuevo}.` });
+    });
+    if (sesion === viejo) setSesion(nuevo);
+    return { ok: true };
+  };
+
+  /** Elimina las PQRSF de ejemplo que trae la versión de demostración. */
+  const eliminarEjemplos = () => {
+    const esEjemplo = (id?: string) => !!id && /^p\d+$/.test(id);
+    const cantidad = state.pqrsf.filter((p) => esEjemplo(p.id)).length;
+    setState((s) => {
+      const pqrsf = s.pqrsf.filter((p) => !esEjemplo(p.id));
+      const y = String(new Date().getFullYear());
+      const quedanDelAnio = pqrsf.filter((p) => p.consecutivo.endsWith(y));
+      const maxConsec = quedanDelAnio.reduce((m, p) => Math.max(m, Number(p.consecutivo.slice(3, -4)) || 0), 0);
+      const n: AppState = {
+        ...s,
+        pqrsf,
+        notificaciones: s.notificaciones.filter((x) => !esEjemplo(x.pqrsfId)),
+        auditoria: s.auditoria.filter((x) => !esEjemplo(x.pqrsfId)),
+        contadores: { ...s.contadores, [y]: maxConsec },
+      };
+      return auditarCon(n, 'Limpieza de datos', `Se eliminaron ${cantidad} solicitudes de ejemplo. El consecutivo continúa en ${maxConsec + 1}.`, undefined, usuario);
+    });
+    return cantidad;
+  };
+
   const restablecerClave = (id: string) => {
-    const clave = String(Math.floor(10000 + Math.random() * 89999));
+    const clave = generarClaveProvisional();
     setState((s) => {
       const u = s.usuarios.find((x) => x.id === id);
       let n: AppState = {
@@ -415,6 +475,52 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return st;
     });
 
+  // ------------------------------------------------------------ Envío real de correos (Gmail · Apps Script)
+  const enEnvio = useRef(new Set<string>());
+  useEffect(() => {
+    const pendientes = state.notificaciones.filter((n) => n.envio === 'pendiente' && !enEnvio.current.has(n.id));
+    if (!pendientes.length || !envioConfigurado(state.configEnvio)) return;
+    const cfg = state.configEnvio;
+    pendientes.forEach((n) => enEnvio.current.add(n.id));
+    (async () => {
+      for (const n of [...pendientes].reverse()) {
+        const r = await enviarPorGmail(n, cfg);
+        setState((s) => ({
+          ...s,
+          notificaciones: s.notificaciones.map((x) => (x.id === n.id ? { ...x, envio: r.ok ? 'enviado' : 'error', envioDetalle: r.detalle, envioFecha: ahoraISO() } : x)),
+        }));
+        enEnvio.current.delete(n.id);
+      }
+    })();
+  }, [state.notificaciones, state.configEnvio]);
+
+  const guardarConfigEnvio = (c: ConfigEnvio) =>
+    setState((s) =>
+      auditarCon(
+        { ...s, configEnvio: c },
+        'Configuración de envío por Gmail',
+        `Envío ${c.activo ? 'ACTIVADO' : 'desactivado'} · remitente ${c.correoRemitente} · ${c.modoPrueba ? `modo prueba (todo a ${c.correoPrueba})` : 'envío a destinatarios reales'}`,
+        undefined,
+        usuario
+      )
+    );
+
+  const reintentarEnvio = (id: string) =>
+    setState((s) => ({ ...s, notificaciones: s.notificaciones.map((x) => (x.id === id ? { ...x, envio: 'pendiente', envioDetalle: undefined } : x)) }));
+
+  const enviarCorreoPrueba = async () => {
+    const cfg = state.configEnvio;
+    const n = {
+      para: [usuario?.email ?? cfg.correoPrueba],
+      cc: [] as string[],
+      asunto: 'Correo de prueba · Gestión PQRSF',
+      cuerpo: `Este es un correo de prueba enviado por ${usuario?.nombre ?? 'el administrador'} desde la aplicación de Gestión de Solicitudes. Si lo recibe, el envío por Gmail funciona correctamente.`,
+    };
+    const r = await enviarPorGmail(n, { ...cfg, activo: true });
+    setState((s) => auditarCon(s, 'Correo de prueba', `${r.ok ? 'Enviado' : 'Error'}: ${r.detalle}`, undefined, usuario));
+    return r;
+  };
+
   const reiniciarDemo = () => {
     setState(estadoInicial());
     setSesion(null);
@@ -431,6 +537,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     cambiarClave,
     actualizarUsuario,
     crearUsuario,
+    cambiarCorreoUsuario,
+    eliminarEjemplos,
     restablecerClave,
     atenderSolicitudClave,
     guardarTipologia,
@@ -442,6 +550,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     notificar,
     auditar,
     reiniciarDemo,
+    guardarConfigEnvio,
+    reintentarEnvio,
+    enviarCorreoPrueba,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

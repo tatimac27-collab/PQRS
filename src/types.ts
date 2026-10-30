@@ -19,7 +19,7 @@ export interface Usuario {
   proceso: string;
   ciudad: string;
   rol: Rol;
-  clave: string; // 5 dígitos numéricos
+  clave: string; // alfanumérica (ver REGLA_CLAVE)
   debeCambiarClave: boolean;
   activo: boolean;
   creado: string;
@@ -224,6 +224,22 @@ export interface Notificacion {
   cuerpo: string;
   pqrsfId?: string;
   evento?: string; // Radicación, Cambio de estado, Vencimiento, Acción correctiva, etc.
+  /** Estado del envío real por Gmail (Google Apps Script). */
+  envio?: 'simulado' | 'pendiente' | 'enviado' | 'error';
+  envioDetalle?: string;
+  envioFecha?: string;
+}
+
+/** Configuración del envío real de correos a través de Gmail (Google Apps Script). */
+export interface ConfigEnvio {
+  activo: boolean; // si es false, los correos solo se registran (simulación)
+  urlScript: string; // URL de la aplicación web de Apps Script (termina en /exec)
+  token: string; // clave compartida con el script
+  correoRemitente: string; // cuenta de Gmail / Workspace que implementa el script
+  nombreRemitente: string;
+  modoPrueba: boolean; // redirige TODOS los correos al buzón de prueba
+  correoPrueba: string;
+  urlApp: string; // enlace de la aplicación que aparece en el botón del correo
 }
 
 export interface RegistroAuditoria {
@@ -256,6 +272,7 @@ export interface AppState {
   usuarios: Usuario[];
   tipologias: Tipologia[];
   configCorreos: ConfigCorreoArea[];
+  configEnvio: ConfigEnvio;
   pqrsf: PQRSF[];
   notificaciones: Notificacion[];
   auditoria: RegistroAuditoria[];

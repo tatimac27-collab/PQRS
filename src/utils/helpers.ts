@@ -4,9 +4,30 @@ import {
   PESOS_INDICADOR,
   SLA_MAX_POR_TRAMITE,
   SLA_POR_RIESGO,
+  CLAVE_MAX,
+  CLAVE_MIN,
   UMBRAL_FALLA_SISTEMICA,
   VENTANA_REINCIDENCIA_DIAS,
 } from '../data';
+
+export const emailValido = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e.trim());
+
+/** Devuelve el mensaje de error o null si la clave cumple la regla alfanumérica. */
+export const validarClave = (c: string): string | null => {
+  if (c.length < CLAVE_MIN || c.length > CLAVE_MAX) return `La clave debe tener entre ${CLAVE_MIN} y ${CLAVE_MAX} caracteres.`;
+  if (!/[A-Za-zÁÉÍÓÚáéíóúÑñ]/.test(c) || !/\d/.test(c)) return 'La clave debe combinar letras y números.';
+  if (/\s/.test(c)) return 'La clave no puede tener espacios.';
+  return null;
+};
+
+/** Clave provisional alfanumérica de 8 caracteres (sin caracteres ambiguos). */
+export const generarClaveProvisional = () => {
+  const L = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz';
+  const N = '23456789';
+  const pick = (s: string) => s[Math.floor(Math.random() * s.length)];
+  const base = [pick(L), pick(L), pick(N), pick(N), ...Array.from({ length: 4 }, () => pick(L + N))];
+  return base.sort(() => Math.random() - 0.5).join('');
+};
 
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 export const ahoraISO = () => new Date().toISOString();
